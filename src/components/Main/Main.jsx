@@ -1,7 +1,7 @@
 import { assets } from "../../assets/assets";
 import { Context } from "../../context/Context";
 import { useContext } from "react";
-import ThemeToggle from "../Main/Themetoggle";
+import ThemeToggle from "../Main/ThemeToggle";
 
 const Main = () => {
   const {

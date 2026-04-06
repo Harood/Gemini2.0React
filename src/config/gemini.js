@@ -1,7 +1,27 @@
 import { GoogleGenAI } from '@google/genai';
 
+const MAX_RETRIES = 3;
+const BASE_RETRY_DELAY_MS = 1200;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error) {
+  const rawMessage = error?.message || '';
+  return (
+    rawMessage.includes('429') ||
+    rawMessage.includes('RESOURCE_EXHAUSTED') ||
+    rawMessage.toLowerCase().includes('too many requests')
+  );
+}
+
 function getFriendlyApiError(error) {
   const rawMessage = error?.message || '';
+
+  if (isRateLimitError(error)) {
+    return 'Rate limit reached (429). Please wait a moment and try again.';
+  }
 
   if (
     rawMessage.includes('API_KEY_INVALID') ||
@@ -43,14 +63,24 @@ async function main(prompt) {
 
   let response;
 
-  try {
-    response = await ai.models.generateContentStream({
-      model,
-      config,
-      contents,
-    });
-  } catch (error) {
-    throw new Error(getFriendlyApiError(error));
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      response = await ai.models.generateContentStream({
+        model,
+        config,
+        contents,
+      });
+      break;
+    } catch (error) {
+      const shouldRetry = isRateLimitError(error) && attempt < MAX_RETRIES;
+
+      if (!shouldRetry) {
+        throw new Error(getFriendlyApiError(error));
+      }
+
+      const backoffMs = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+      await sleep(backoffMs);
+    }
   }
 
   let fullText = '';

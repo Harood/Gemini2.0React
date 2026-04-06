@@ -15,7 +15,7 @@ async function main(prompt) {
     responseMimeType: 'text/plain',
   };
 
-  const model = 'gemini-2.0-flash-lite';
+  const model = 'gemini-3-flash-preview';
 
   const contents = [
     {

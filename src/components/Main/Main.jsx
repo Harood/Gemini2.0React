@@ -12,6 +12,7 @@ const Main = () => {
     showResult,
     resultData,
     loading,
+    typing,
     cooldownSeconds,
     setInput,
     input,
@@ -137,6 +138,9 @@ const Main = () => {
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {resultData}
                       </ReactMarkdown>
+                      {typing && (
+                        <span className="ml-1 inline-block h-5 w-2 translate-y-1 animate-pulse rounded-sm bg-current align-middle" />
+                      )}
                     </div>
                   </div>
                 )}

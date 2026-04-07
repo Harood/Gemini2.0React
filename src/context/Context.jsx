@@ -1,7 +1,9 @@
-import { useState, createContext} from 'react';
+import { useEffect, useState, createContext} from 'react';
 import main from '../config/gemini';
 
 export const Context = createContext();
+
+const MIN_SEND_INTERVAL_MS = 4000;
 
 export const ContextProvider = ({ children }) => {
   const [input, setInput] = useState('');
@@ -10,12 +12,17 @@ export const ContextProvider = ({ children }) => {
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultData, setResultData] = useState('');
+  const [nextSendAt, setNextSendAt] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
-  const delayPara = (index, nextWord) => {
-    setTimeout(() => {
-      setResultData((prev) => prev + nextWord);
-    }, index * 75); // Adjust the delay as needed
-  };
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const remainingMs = Math.max(0, nextSendAt - Date.now());
+      setCooldownSeconds(Math.ceil(remainingMs / 1000));
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [nextSendAt]);
 
   const newChat = () => {
     setLoading(false);
@@ -23,47 +30,40 @@ export const ContextProvider = ({ children }) => {
   }
 
   const onSent = async (prompt) => {
+  const promptToSend = (prompt ?? input).trim();
+
+  if (!promptToSend || loading) {
+    return;
+  }
+
+  const remainingMs = Math.max(0, nextSendAt - Date.now());
+  if (remainingMs > 0) {
+    setShowResult(true);
+    setResultData(`Please wait ${Math.ceil(remainingMs / 1000)}s before sending another request.`);
+    return;
+  }
+
   setResultData('');
   setLoading(true);
   setShowResult(true);
+  setNextSendAt(Date.now() + MIN_SEND_INTERVAL_MS);
 
   try {
     let response = '';
     if (prompt !== undefined){
-      response = await main(prompt);
-      setRecentPrompt(prompt);
+      response = await main(promptToSend);
+      setRecentPrompt(promptToSend);
     }
     else {
       setPrevPrompts((prev) => [...prev, input]);
-      response = await main(input);
-      setRecentPrompt(input);
+      response = await main(promptToSend);
+      setRecentPrompt(promptToSend);
     }
 
 
 
 
-    // Step 1: Bold formatting (**text** => <b>text</b>)
-    let formatted = response.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-
-    // Step 2: Headings (lines ending with ':' become <h3>)
-    formatted = formatted.replace(/^(.+?):$/gm, '<h3 class="text-xl font-semibold mt-4 mb-2">$1</h3>');
-
-    // Step 3: Bullet points (* item)
-    formatted = formatted.replace(/\n\* (.*?)(?=\n|$)/g, '<li>$1</li>');
-
-    // Step 4: Wrap all <li> in <ul> if any exist
-    if (formatted.includes('<li>')) {
-      formatted = formatted.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul class="list-disc list-inside ml-4 mt-2">$1</ul>');
-    }
-
-    // Step 5: Replace remaining line breaks
-    formatted = formatted.replace(/\n/g, '<br>');
-
-    // Step 6: Typing effect
-    const words = formatted.split(' ');
-    for (let i = 0; i < words.length; i++) {
-      delayPara(i, words[i] + ' ');
-    }
+    setResultData(response);
 
     setInput('');
   } catch (error) {
@@ -89,6 +89,7 @@ export const ContextProvider = ({ children }) => {
     setLoading,
     resultData,
     setResultData,
+    cooldownSeconds,
     onSent,
     newChat,
   };

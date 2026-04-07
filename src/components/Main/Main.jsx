@@ -1,6 +1,8 @@
 import { assets } from "../../assets/assets";
 import { Context } from "../../context/Context";
 import { useContext } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import ThemeToggle from "../Main/ThemeToggle";
 
 const Main = () => {
@@ -10,9 +12,12 @@ const Main = () => {
     showResult,
     resultData,
     loading,
+    cooldownSeconds,
     setInput,
     input,
   } = useContext(Context);
+
+  const sendDisabled = loading || !input.trim() || cooldownSeconds > 0;
 
   return (
     <div className="main flex-1 flex-col h-screen bg-gray-50 dark:bg-gray-900">
@@ -128,10 +133,11 @@ const Main = () => {
                   </div>
                 ) : (
                   <div className="pr-2 max-h-[calc(100vh-250px)] px-2 py-10">
-                    <p
-                      dangerouslySetInnerHTML={{ __html: resultData }}
-                      className="text-xl whitespace-pre-wrap dark:text-white"
-                    ></p>
+                    <div className="markdown-output text-xl dark:text-white">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {resultData}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 )}
               </div>
@@ -141,7 +147,7 @@ const Main = () => {
       </div>
 
       {/* Bottom Input Area */}
-      <div className="main-bottom flex-col bg-white px-4 py-5 max-w-[950px] w-full mx-auto  dark:bg-gray-900">
+      <div className="main-bottom flex-col bg-gray-50 px-4 py-5 max-w-[950px] w-full mx-auto  dark:bg-gray-900">
         <div className="search flex items-center justify-between bg-gray-200 px-5 py-5 rounded-4xl dark:bg-gray-700">
           <input
             type="text"
@@ -162,14 +168,23 @@ const Main = () => {
               className="w-6 cursor-pointer hover:bg-gray-300 rounded-3xl dark:invert transition duration-300"
             />
             <img
-              onClick={() => onSent()}
+              onClick={() => {
+                if (!sendDisabled) {
+                  onSent();
+                }
+              }}
               src={assets.send_icon}
               alt=""
-              className="w-6 cursor-pointer hover:bg-gray-300 rounded-3xl dark:invert transition duration-300"
+              className={`w-6 rounded-3xl dark:invert transition duration-300 ${sendDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-gray-300'}`}
             />
             
           </div>
         </div>
+        {cooldownSeconds > 0 && (
+          <p className="mt-2 text-sm text-center text-amber-600 dark:text-amber-400">
+            Rate-limit guard: wait {cooldownSeconds}s before next prompt.
+          </p>
+        )}
         <p className="bottom-info mt-5 text-slate-500 dark:text-slate-300 text-center">
           Gemini may display inaccurate info, including about people so double-check its responses. Your Privacy and Gemini Apps
         </p>
